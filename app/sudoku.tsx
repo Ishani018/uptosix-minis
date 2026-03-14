@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert, ScrollView, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, RotateCcw } from 'lucide-react-native';
+
+const { width } = Dimensions.get('window');
+const CELL_SIZE = Math.floor((width - 48 - 10) / 9); // Responsive size for 9x9
 
 const COLORS = {
     background: '#FDFBF7',
@@ -11,35 +14,49 @@ const COLORS = {
     fixed: '#F4F7F6',
     selected: '#EAF4F5',
     border: '#EAEAEA',
+    thickBorder: '#5B6963',
 };
 
-// Simplified 4x4 Sudoku Logic
-const generateBoard = () => {
-    // Basic 4x4 valid board template
+// 9x9 Sudoku Generator (Template-based for stability/speed)
+const generateSudoku = () => {
     const base = [
-        [1, 2, 3, 4],
-        [3, 4, 1, 2],
-        [2, 3, 4, 1],
-        [4, 1, 2, 3]
+        [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        [4, 5, 6, 7, 8, 9, 1, 2, 3],
+        [7, 8, 9, 1, 2, 3, 4, 5, 6],
+        [2, 3, 4, 5, 6, 7, 8, 9, 1],
+        [5, 6, 7, 8, 9, 1, 2, 3, 4],
+        [8, 9, 1, 2, 3, 4, 5, 6, 7],
+        [3, 4, 5, 6, 7, 8, 9, 1, 2],
+        [6, 7, 8, 9, 1, 2, 3, 4, 5],
+        [9, 1, 2, 3, 4, 5, 6, 7, 8]
     ];
-    
-    // Shuffle rows and columns within their 2x2 blocks to randomize
+
     const shuffle = (arr: any[]) => arr.sort(() => Math.random() - 0.5);
+
+    // Swap groups (blocks of 3 rows)
+    const blockOrder = shuffle([0, 1, 2]);
+    let shuffled = [];
+    for (let b of blockOrder) {
+        const rows = shuffle([b * 3, b * 3 + 1, b * 3 + 2]);
+        for (let r of rows) shuffled.push(base[r]);
+    }
+
+    // Transpose to shuffle columns by same logic
+    const transpose = (m: any[][]) => m[0].map((_, i) => m.map(row => row[i]));
+    shuffled = transpose(shuffled);
     
-    const block1 = shuffle([0, 1]);
-    const block2 = shuffle([2, 3]);
-    const rowOrder = [...block1, ...block2];
-    
-    const colBlock1 = shuffle([0, 1]);
-    const colBlock2 = shuffle([2, 3]);
-    const colOrder = [...colBlock1, ...colBlock2];
-    
-    const randomized = rowOrder.map(r => colOrder.map(c => base[r][c]));
-    
-    // Create puzzle by removing elements
-    const puzzle = randomized.map(row => row.map(cell => Math.random() > 0.4 ? cell : 0));
-    
-    return { puzzle, solution: randomized };
+    const colBlockOrder = shuffle([0, 1, 2]);
+    let finalBoard: number[][] = [];
+    for (let b of colBlockOrder) {
+        const cols = shuffle([b * 3, b * 3 + 1, b * 3 + 2]);
+        for (let c of cols) finalBoard.push(shuffled[c]);
+    }
+    finalBoard = transpose(finalBoard);
+
+    // Remove numbers based on difficulty (mindful = easier, ~40 numbers shown)
+    const puzzle = finalBoard.map(row => row.map(cell => Math.random() > 0.55 ? cell : 0));
+
+    return { puzzle, solution: finalBoard };
 };
 
 export default function SoftSudoku() {
@@ -49,7 +66,7 @@ export default function SoftSudoku() {
     const [selectedCell, setSelectedCell] = useState<{ r: number, c: number } | null>(null);
 
     const startNewGame = () => {
-        const { puzzle, solution } = generateBoard();
+        const { puzzle, solution } = generateSudoku();
         setGameState({ puzzle, solution });
         setBoard(puzzle.map(row => [...row]));
         setSelectedCell(null);
@@ -62,23 +79,23 @@ export default function SoftSudoku() {
     const handleNumberPress = (num: number) => {
         if (!selectedCell || !gameState) return;
         const { r, c } = selectedCell;
-        if (gameState.puzzle[r][c] !== 0) return; // Can't change fixed cells
+        if (gameState.puzzle[r][c] !== 0) return;
 
-        const newBoard = board.map((row, rowIndex) => 
-            row.map((cell, colIndex) => (rowIndex === r && colIndex === c ? num : cell))
+        const newBoard = board.map((row, rIdx) => 
+            row.map((cell, cIdx) => (rIdx === r && cIdx === c ? num : cell))
         );
         setBoard(newBoard);
 
-        // Check for win
-        if (JSON.stringify(newBoard) === JSON.stringify(gameState.solution)) {
-            Alert.alert("Harmony Achieved", "You've balanced the numbers perfectly.");
+        // Check if full board matches solution
+        if (newBoard.flat().every(v => v !== 0) && JSON.stringify(newBoard) === JSON.stringify(gameState.solution)) {
+            Alert.alert("Harmony Found", "The grid is perfectly balanced.");
         }
     };
 
     if (!gameState) return null;
 
     return (
-        <View style={styles.container}>
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <View style={styles.header}>
                 <Pressable style={styles.iconButton} onPress={() => router.back()}>
                     <ArrowLeft size={24} color={COLORS.text} />
@@ -88,19 +105,21 @@ export default function SoftSudoku() {
                     <RotateCcw size={24} color={COLORS.text} />
                 </Pressable>
             </View>
-            
-            <Text style={styles.subtitle}>Fill the grid so each row, column, and 2x2 block contains 1-4.</Text>
 
-            <View style={styles.board}>
+            <Text style={styles.subtitle}>A full 9x9 grid for deep, focused harmony.</Text>
+
+            <View style={styles.gridContainer}>
                 {board.map((row, r) => (
-                    <View key={r} style={styles.row}>
+                    <View key={r} style={[styles.row, r % 3 === 2 && r !== 8 && styles.rowBlock]}>
                         {row.map((cell, c) => (
                             <Pressable
                                 key={c}
                                 style={[
                                     styles.cell,
+                                    { width: CELL_SIZE, height: CELL_SIZE },
                                     selectedCell?.r === r && selectedCell?.c === c && styles.selectedCell,
-                                    gameState.puzzle[r][c] !== 0 && styles.fixedCell
+                                    gameState.puzzle[r][c] !== 0 && styles.fixedCell,
+                                    c % 3 === 2 && c !== 8 && styles.colBlock
                                 ]}
                                 onPress={() => setSelectedCell({ r, c })}
                             >
@@ -114,30 +133,67 @@ export default function SoftSudoku() {
             </View>
 
             <View style={styles.numpad}>
-                {[1, 2, 3, 4].map(num => (
-                    <Pressable key={num} style={styles.numBtn} onPress={() => handleNumberPress(num)}>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                    <Pressable 
+                        key={num} 
+                        style={[styles.numBtn, { width: CELL_SIZE * 1.2, height: CELL_SIZE * 1.2 }]} 
+                        onPress={() => handleNumberPress(num)}
+                    >
                         <Text style={styles.numBtnText}>{num}</Text>
                     </Pressable>
                 ))}
             </View>
-        </View>
+        </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.background, padding: 24, paddingTop: 60 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    container: { flex: 1, backgroundColor: COLORS.background },
+    content: { padding: 24, paddingTop: 60, alignItems: 'center' },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 10 },
     iconButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
     title: { fontSize: 24, fontWeight: '700', color: COLORS.text },
-    subtitle: { fontSize: 15, color: COLORS.text, opacity: 0.7, textAlign: 'center', marginBottom: 40, paddingHorizontal: 20 },
-    board: { alignSelf: 'center', backgroundColor: COLORS.border, padding: 4, borderRadius: 16, gap: 4 },
-    row: { flexDirection: 'row', gap: 4 },
-    cell: { width: 70, height: 70, backgroundColor: COLORS.cell, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-    selectedCell: { backgroundColor: COLORS.selected, borderWidth: 2, borderColor: COLORS.accent },
+    subtitle: { fontSize: 14, color: COLORS.text, opacity: 0.7, textAlign: 'center', marginBottom: 30 },
+    gridContainer: { 
+        backgroundColor: COLORS.border, 
+        padding: 1, 
+        borderRadius: 8, 
+        overflow: 'hidden',
+        borderWidth: 2,
+        borderColor: COLORS.text,
+    },
+    row: { flexDirection: 'row' },
+    rowBlock: { borderBottomWidth: 2, borderBottomColor: COLORS.text },
+    colBlock: { borderRightWidth: 2, borderRightColor: COLORS.text },
+    cell: { 
+        backgroundColor: COLORS.cell, 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        borderWidth: 0.5,
+        borderColor: COLORS.border,
+    },
+    selectedCell: { backgroundColor: COLORS.selected },
     fixedCell: { backgroundColor: COLORS.fixed },
-    cellText: { fontSize: 28, color: COLORS.accent, fontWeight: '600' },
+    cellText: { fontSize: 18, color: COLORS.accent, fontWeight: '600' },
     fixedText: { color: COLORS.text },
-    numpad: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 50 },
-    numBtn: { width: 56, height: 56, backgroundColor: COLORS.accent, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: COLORS.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
-    numBtnText: { color: '#FFF', fontSize: 22, fontWeight: '700' },
+    numpad: { 
+        flexDirection: 'row', 
+        flexWrap: 'wrap', 
+        justifyContent: 'center', 
+        gap: 10, 
+        marginTop: 30,
+        paddingHorizontal: 10 
+    },
+    numBtn: { 
+        backgroundColor: COLORS.accent, 
+        borderRadius: 8, 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        shadowColor: COLORS.accent,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 2 
+    },
+    numBtnText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
 });

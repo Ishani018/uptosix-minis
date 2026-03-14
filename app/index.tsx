@@ -12,7 +12,8 @@ import {
   Sparkles,
   Droplet,
   Box,
-  Leaf
+  Leaf,
+  Waves
 } from 'lucide-react-native';
 
 // Calming, uniform soft palette
@@ -29,12 +30,14 @@ const COLORS = {
 const GAMES = [
   { id: 'breathing', title: 'Breathing Circle', description: 'Inhale, exhale, relax.', icon: Wind, route: '/breathing', color: '#EBF5EA' },
   { id: 'zen', title: 'Zen Garden', description: 'Rake the sand, find peace.', icon: Sparkles, route: '/zen', color: '#F5EFEA' },
+  { id: 'pond', title: 'Zen Pond', description: 'Create ripples, watch the lilies.', icon: Waves, route: '/pond', color: '#EAF4F5' },
+  { id: 'flood', title: 'Harmonious Flood', description: 'Waves of color unification.', icon: Droplet, route: '/flood', color: '#EAEBF5' },
   { id: 'puzzle', title: 'Mindful Puzzle', description: 'Rearrange the pieces to find harmony.', icon: Shuffle, route: '/puzzle', color: '#EAF4F5' },
   { id: 'bubble', title: 'Bubble Pop', description: 'Satisfying, gentle pops.', icon: CircleDashed, route: '/bubble', color: '#EAEBF5' },
   { id: 'snake', title: 'Snake Garden', description: 'A relaxing slide through the garden.', icon: Gamepad2, route: '/snake', color: '#EAF0EB' },
   { id: 'tic-tac-toe', title: 'Tic-Tac-Toe', description: 'Strategic simplicity in every turn.', icon: Grid3X3, route: '/tic-tac-toe', color: '#F0EAF5' },
   { id: 'memory', title: 'Memory Match', description: 'Gently train your recall.', icon: Brain, route: '/memory', color: '#F5EAEF' },
-  { id: 'sudoku', title: 'Soft Sudoku', description: 'Numbers in perfect balance.', icon: LayoutGrid, route: '/sudoku', color: '#F5EEDA' },
+  { id: 'sudoku', title: 'Soft Sudoku', description: 'Full 9x9 grid balance.', icon: LayoutGrid, route: '/sudoku', color: '#F5EEDA' },
   { id: 'colors', title: 'Color Sort', description: 'Organize the gradients.', icon: Droplet, route: '/colors', color: '#EAEFF5' },
   { id: '2048', title: 'Merge 2048', description: 'Combine blocks seamlessly.', icon: Box, route: '/2048', color: '#F5EAE5' },
 ];
