@@ -29,7 +29,7 @@ export default function SnakeGame() {
   const [isGameOver, setIsGameOver] = useState(false);
   const [score, setScore] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   const directionRef = useRef<Direction>(INITIAL_DIRECTION);
 
   useEffect(() => {
