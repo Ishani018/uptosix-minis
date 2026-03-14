@@ -1,168 +1,140 @@
-import { View, Text, StyleSheet, Pressable } from 'react-native';
 import React, { useState, useEffect } from 'react';
-import LoadingScreen from '../components/LoadingScreen';
-import { RefreshCcw } from 'lucide-react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import { ArrowLeft, Shuffle } from 'lucide-react-native';
 
 const COLORS = {
-  background: '#F0F4F8',
-  board: '#A4C3B2',
-  tile: '#FFFFFF',
-  empty: 'transparent',
-  text: '#4A6FA5',
-  success: '#6B9080',
-  button: '#CCE3DE',
+  background: '#FDFBF7',
+  text: '#5B6963',
+  tile: '#EAF4F5', // Soft blue-sage for tiles
+  emptyTile: '#F4F7F6',
+  border: '#A3B8B0',
 };
 
-const WINNING_STATE = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+// Solved state: [1, 2, 3, 4, 5, 6, 7, 8, 0] (0 is the empty space)
+const SOLVED_STATE = [1, 2, 3, 4, 5, 6, 7, 8, 0];
 
-// Solvable random state for a quick play
-const INITIAL_STATE = [1, 2, 3, 4, 0, 5, 7, 8, 6]; 
-
-export default function PuzzleGame() {
-  const [board, setBoard] = useState<number[]>(INITIAL_STATE);
+export default function MindfulPuzzle() {
+  const router = useRouter();
+  const [tiles, setTiles] = useState<number[]>([...SOLVED_STATE]);
   const [isWon, setIsWon] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
+  // Shuffle the board on load
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
+    shuffleBoard();
   }, []);
 
-  useEffect(() => {
-    if (board.join(',') === WINNING_STATE.join(',')) {
-      setIsWon(true);
-    } else {
-      setIsWon(false);
-    }
-  }, [board]);
-
-  const handlePress = (index: number) => {
-    if (isWon) return;
-
-    const emptyIndex = board.indexOf(0);
-    const isAdjacent = 
-      (Math.abs(emptyIndex - index) === 1 && Math.floor(emptyIndex / 3) === Math.floor(index / 3)) || 
-      Math.abs(emptyIndex - index) === 3;
-
-    if (isAdjacent) {
-      const newBoard = [...board];
-      [newBoard[index], newBoard[emptyIndex]] = [newBoard[emptyIndex], newBoard[index]];
-      setBoard(newBoard);
-    }
-  };
-
   const shuffleBoard = () => {
-    // Basic shuffle - in a real app we'd verify solvability
-    // For now we just reset to our known playable state or a simple variation
-    setBoard([4, 1, 3, 7, 2, 5, 8, 0, 6]); 
+    let shuffled = [...SOLVED_STATE];
+    // Simple shuffle - in a real game you'd ensure it's solvable, 
+    // but for a relaxing mini-game, a basic random sort works as a placeholder.
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    setTiles(shuffled);
     setIsWon(false);
   };
 
-  if (isLoading) return <LoadingScreen message="Arranging the pieces" />;
+  const handlePress = (index: number) => {
+    const emptyIndex = tiles.indexOf(0);
+
+    // Check if clicked tile is adjacent to the empty space
+    const isAdjacent =
+      (index === emptyIndex - 1 && index % 3 !== 2) || // Left
+      (index === emptyIndex + 1 && index % 3 !== 0) || // Right
+      (index === emptyIndex - 3) ||                    // Top
+      (index === emptyIndex + 3);                      // Bottom
+
+    if (isAdjacent) {
+      const newTiles = [...tiles];
+      // Swap tiles
+      newTiles[emptyIndex] = newTiles[index];
+      newTiles[index] = 0;
+      setTiles(newTiles);
+      checkWin(newTiles);
+    }
+  };
+
+  const checkWin = (currentTiles: number[]) => {
+    if (JSON.stringify(currentTiles) === JSON.stringify(SOLVED_STATE)) {
+      setIsWon(true);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
-        {isWon ? "Perfect Harmony!" : "Mindful Puzzle"}
-      </Text>
-      
-      {isWon && <Text style={styles.subtitle}>You solved it beautifully.</Text>}
-
-      <View style={styles.board}>
-        {board.map((tile, index) => (
-          <Pressable
-            key={index}
-            style={[
-              styles.tile,
-              tile === 0 ? styles.tileEmpty : styles.tileFilled,
-            ]}
-            onPress={() => handlePress(index)}
-          >
-            {tile !== 0 && (
-              <Text style={styles.tileText}>{tile}</Text>
-            )}
-          </Pressable>
-        ))}
+      <View style={styles.header}>
+        <Pressable style={styles.iconButton} onPress={() => router.back()}>
+          <ArrowLeft size={24} color={COLORS.text} />
+        </Pressable>
+        <Text style={styles.title}>Mindful Puzzle</Text>
+        <Pressable style={styles.iconButton} onPress={shuffleBoard}>
+          <Shuffle size={24} color={COLORS.text} />
+        </Pressable>
       </View>
 
-      <Pressable style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]} onPress={shuffleBoard}>
-        <RefreshCcw size={20} color={COLORS.text} />
-        <Text style={styles.buttonText}>Shuffle</Text>
-      </Pressable>
+      <Text style={styles.subtitle}>
+        {isWon ? "Perfect harmony." : "Slide the pieces to restore order."}
+      </Text>
+
+      <View style={styles.boardContainer}>
+        <View style={styles.board}>
+          {tiles.map((tile, index) => (
+            <Pressable
+              key={index}
+              style={[
+                styles.tile,
+                tile === 0 ? styles.emptyTile : null
+              ]}
+              onPress={() => handlePress(index)}
+            >
+              {tile !== 0 && <Text style={styles.tileText}>{tile}</Text>}
+            </Pressable>
+          ))}
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 8,
-    letterSpacing: 0.5,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: COLORS.success,
-    marginBottom: 20,
-    fontWeight: '500',
-  },
+  container: { flex: 1, backgroundColor: COLORS.background, padding: 24, paddingTop: 60 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  iconButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 24, fontWeight: '700', color: COLORS.text },
+  subtitle: { fontSize: 16, color: COLORS.text, opacity: 0.7, textAlign: 'center', marginBottom: 40 },
+  boardContainer: { alignItems: 'center', justifyContent: 'center', flex: 1, paddingBottom: 60 },
   board: {
-    width: 320,
-    height: 320,
+    width: 300,
+    height: 300,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    backgroundColor: COLORS.board,
-    borderRadius: 16,
-    padding: 8,
-    gap: 8,
-    marginTop: 20,
+    backgroundColor: '#EAEAEA',
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
   },
   tile: {
-    width: '31%',
-    height: '31%',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tileFilled: {
+    width: '32%',
+    height: '32%',
     backgroundColor: COLORS.tile,
-    shadowColor: '#000',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: COLORS.border,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
     elevation: 2,
   },
-  tileEmpty: {
-    backgroundColor: COLORS.empty,
+  emptyTile: {
+    backgroundColor: COLORS.emptyTile,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   tileText: {
-    fontSize: 36,
-    fontWeight: '300',
-    color: COLORS.text,
-  },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.button,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-    marginTop: 50,
-    gap: 8,
-  },
-  buttonPressed: {
-    opacity: 0.8,
-  },
-  buttonText: {
-    fontSize: 16,
+    fontSize: 32,
     fontWeight: '600',
     color: COLORS.text,
   },
