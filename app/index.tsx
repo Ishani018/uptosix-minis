@@ -24,7 +24,7 @@ export default function GameHub() {
   return (
     <View style={styles.wrapper}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        <Text style={styles.logo}>✦ MINDFUL GAMES ✦</Text>
+        <Text style={styles.logo}>✦ PAUSE ✦</Text>
         <Text style={styles.tagline}>A quiet place for your focus.</Text>
         <View style={styles.grid}>
           {GAMES.map((game) => (
