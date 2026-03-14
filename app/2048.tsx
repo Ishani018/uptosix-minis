@@ -1,27 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-    View, Text, StyleSheet, Pressable, Image,
-    Animated, PanResponder, Easing,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, Animated, PanResponder, Easing } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, RotateCcw, Trophy } from 'lucide-react-native';
 import { useGameDimensions } from './hooks/useGameDimensions';
+import { AdEventType } from 'react-native-google-mobile-ads';
+import { interstitialAd } from './hooks/ads';
 
 // CANVA ASSET CONFIG
 const ASSETS = {
     boardBackground: null as null | { uri: string },
     tileImages: {
-        2: null as null | { uri: string },
-        4: null as null | { uri: string },
-        8: null as null | { uri: string },
-        16: null as null | { uri: string },
-        32: null as null | { uri: string },
-        64: null as null | { uri: string },
-        128: null as null | { uri: string },
-        256: null as null | { uri: string },
-        512: null as null | { uri: string },
-        1024: null as null | { uri: string },
-        2048: null as null | { uri: string },
+        2: null, 4: null, 8: null, 16: null, 32: null,
+        64: null, 128: null, 256: null, 512: null, 1024: null, 2048: null,
     } as Record<number, null | { uri: string }>,
 };
 
@@ -65,14 +55,12 @@ function addRandom(tiles: Tile[]): Tile[] {
 
 function shiftLine(line: (Tile | null)[]): { out: (Tile | null)[]; score: number; moved: boolean } {
     const src = line.filter(Boolean) as Tile[];
-    let score = 0; let moved = false;
-    const merged: Tile[] = [];
+    let score = 0; let moved = false; const merged: Tile[] = [];
     let i = 0;
     while (i < src.length) {
         if (i + 1 < src.length && src[i].value === src[i + 1].value) {
             const v = src[i].value * 2; score += v; moved = true;
-            merged.push({ ...src[i], value: v, isMerged: true, isNew: false });
-            i += 2;
+            merged.push({ ...src[i], value: v, isMerged: true, isNew: false }); i += 2;
         } else { merged.push({ ...src[i], isMerged: false, isNew: false }); i++; }
     }
     return { out: [...merged, ...Array(4 - merged.length).fill(null)], score, moved };
@@ -121,23 +109,16 @@ function TileView({ tile, cellSize }: { tile: Tile; cellSize: number }) {
     const scale = useRef(new Animated.Value(tile.isNew ? 0 : 1)).current;
     const prevVal = useRef(tile.value);
     useEffect(() => {
-        if (tile.isNew) {
-            scale.setValue(0);
-            Animated.spring(scale, { toValue: 1, friction: 4, tension: 160, useNativeDriver: true }).start();
-        } else if (tile.isMerged && tile.value !== prevVal.current) {
+        if (tile.isNew) { scale.setValue(0); Animated.spring(scale, { toValue: 1, friction: 4, tension: 160, useNativeDriver: true }).start(); }
+        else if (tile.isMerged && tile.value !== prevVal.current) {
             prevVal.current = tile.value;
-            Animated.sequence([
-                Animated.timing(scale, { toValue: 1.18, duration: 100, useNativeDriver: true }),
-                Animated.spring(scale, { toValue: 1, friction: 4, useNativeDriver: true }),
-            ]).start();
+            Animated.sequence([Animated.timing(scale, { toValue: 1.18, duration: 100, useNativeDriver: true }), Animated.spring(scale, { toValue: 1, friction: 4, useNativeDriver: true })]).start();
         }
     }, [tile.isNew, tile.isMerged, tile.value, scale]);
-
     const cfg = getTileCfg(tile.value);
     const left = tile.col * (cellSize + GAP) + GAP;
     const top = tile.row * (cellSize + GAP) + GAP;
     const assetImg = ASSETS.tileImages[tile.value];
-
     return (
         <Animated.View style={[styles.tile, { left, top, width: cellSize, height: cellSize, backgroundColor: cfg.bg, borderRadius: cellSize * 0.12, transform: [{ scale }] }]}>
             {assetImg
@@ -176,24 +157,61 @@ export default function Merge2048() {
     const [gameOver, setGameOver] = useState(false);
     const [won, setWon] = useState(false);
     const [wonDismissed, setWonDismissed] = useState(false);
+    const [adLoaded, setAdLoaded] = useState(false);
 
     const tilesRef = useRef<Tile[]>([]);
     const scoreRef = useRef(0);
     const doneRef = useRef(false);
 
-    const init = useCallback(() => {
+    // ── Ad setup ──────────────────────────────────────────────────────────────
+    useEffect(() => {
+        const unsubLoaded = interstitialAd.addAdEventListener(AdEventType.LOADED, () => setAdLoaded(true));
+        const unsubClosed = interstitialAd.addAdEventListener(AdEventType.CLOSED, () => {
+            setAdLoaded(false);
+            interstitialAd.load();
+        });
+        interstitialAd.load();
+        return () => { unsubLoaded(); unsubClosed(); };
+    }, []);
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const initGame = useCallback(() => {
         _tid = 0;
         let t1 = makeTile(2, Math.floor(Math.random() * 4), Math.floor(Math.random() * 4));
         let t2: Tile;
         do { t2 = makeTile(2, Math.floor(Math.random() * 4), Math.floor(Math.random() * 4)); }
         while (t2.row === t1.row && t2.col === t1.col);
-        const init = [t1, t2];
-        tilesRef.current = init; scoreRef.current = 0; doneRef.current = false;
-        setTiles(init); setScore(0); setMoveCount(0);
+        const initial = [t1, t2];
+        tilesRef.current = initial; scoreRef.current = 0; doneRef.current = false;
+        setTiles(initial); setScore(0); setMoveCount(0);
         setGameOver(false); setWon(false); setWonDismissed(false); setLastMerge(null);
     }, []);
+    useEffect(() => { initGame(); }, [initGame]);
 
-    useEffect(() => { init(); }, [init]);
+    // Show interstitial then start new game
+    const handleTryAgain = () => {
+        if (adLoaded) {
+            interstitialAd.show();
+            const unsub = interstitialAd.addAdEventListener(AdEventType.CLOSED, () => {
+                unsub();
+                initGame();
+            });
+        } else {
+            initGame();
+        }
+    };
+
+    const handleBack = () => {
+        if (adLoaded) {
+            interstitialAd.show();
+            const unsub = interstitialAd.addAdEventListener(AdEventType.CLOSED, () => {
+                unsub();
+                if (router.canGoBack()) router.back(); else router.replace('/');
+            });
+        } else {
+            if (router.canGoBack()) router.back(); else router.replace('/');
+        }
+    };
 
     const move = useCallback((dir: Dir) => {
         if (doneRef.current) return;
@@ -204,10 +222,7 @@ export default function Merge2048() {
         scoreRef.current += gained;
         const ns = scoreRef.current;
         setTiles([...withNew]); setScore(ns); setMoveCount(m => m + 1);
-        if (gained > 0) {
-            setLastMerge(null);
-            setTimeout(() => setLastMerge(gained), 10);
-        }
+        if (gained > 0) { setLastMerge(null); setTimeout(() => setLastMerge(gained), 10); }
         setBestScore(b => Math.max(b, ns));
         if (withNew.some(t => t.value === 2048)) setWon(true);
         if (!hasMovesLeft(withNew)) { doneRef.current = true; setGameOver(true); }
@@ -224,9 +239,9 @@ export default function Merge2048() {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Pressable style={styles.iconBtn} onPress={() => { if (router.canGoBack()) router.back(); else router.replace('/'); }}><ArrowLeft size={22} color={TEXT_DARK} /></Pressable>
+                <Pressable style={styles.iconBtn} onPress={handleBack}><ArrowLeft size={22} color={TEXT_DARK} /></Pressable>
                 <Text style={styles.title}>2048</Text>
-                <Pressable style={styles.iconBtn} onPress={init}><RotateCcw size={22} color={TEXT_DARK} /></Pressable>
+                <Pressable style={styles.iconBtn} onPress={initGame}><RotateCcw size={22} color={TEXT_DARK} /></Pressable>
             </View>
             <View style={styles.scoreRow}>
                 <View style={styles.scoreBadge}>
@@ -245,6 +260,7 @@ export default function Merge2048() {
             </View>
 
             <View style={[styles.board, { width: boardSize, height: boardSize, borderRadius: 16 }]} {...pan.panHandlers}>
+                {ASSETS.boardBackground && <Image source={ASSETS.boardBackground} style={StyleSheet.absoluteFill} resizeMode="cover" />}
                 {Array.from({ length: 16 }, (_, i) => {
                     const r = Math.floor(i / 4), c = i % 4;
                     return <View key={i} style={[styles.emptyCell, { left: c * (cellSize + GAP) + GAP, top: r * (cellSize + GAP) + GAP, width: cellSize, height: cellSize, borderRadius: cellSize * 0.12 }]} />;
@@ -255,7 +271,10 @@ export default function Merge2048() {
                         <Text style={styles.overlayTitle}>Game Over</Text>
                         <Text style={styles.overlayScore}>{score}</Text>
                         {score >= bestScore && score > 0 && <Text style={styles.overlayBest}>✦ New Best ✦</Text>}
-                        <Pressable style={styles.overlayBtn} onPress={init}><RotateCcw size={16} color={TEXT_DARK} /><Text style={styles.overlayBtnTxt}>Try Again</Text></Pressable>
+                        <Pressable style={styles.overlayBtn} onPress={handleTryAgain}>
+                            <RotateCcw size={16} color={TEXT_DARK} />
+                            <Text style={styles.overlayBtnTxt}>Try Again</Text>
+                        </Pressable>
                     </View>
                 )}
                 {won && !wonDismissed && (
@@ -264,7 +283,7 @@ export default function Merge2048() {
                         <Text style={[styles.overlayScore, { fontSize: 16, color: TEXT_LIGHT }]}>You reached the tile ✦</Text>
                         <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
                             <Pressable style={styles.overlayBtn} onPress={() => setWonDismissed(true)}><Text style={styles.overlayBtnTxt}>Keep Going</Text></Pressable>
-                            <Pressable style={[styles.overlayBtn, { backgroundColor: '#6B9080' }]} onPress={init}><RotateCcw size={16} color="#FFF" /><Text style={[styles.overlayBtnTxt, { color: '#FFF' }]}>New Game</Text></Pressable>
+                            <Pressable style={[styles.overlayBtn, { backgroundColor: '#6B9080' }]} onPress={handleTryAgain}><RotateCcw size={16} color="#FFF" /><Text style={[styles.overlayBtnTxt, { color: '#FFF' }]}>New Game</Text></Pressable>
                         </View>
                     </View>
                 )}

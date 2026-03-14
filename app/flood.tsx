@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, RotateCcw } from 'lucide-react-native';
+import { AdEventType } from 'react-native-google-mobile-ads';
+import { interstitialAd } from './hooks/ads';
 
 const GRID_SIZE = 10;
 const COLORS_LIST = ['#D4E0DC', '#F5EAEF', '#EAF4F5', '#EAEBF5', '#F5F5EA', '#F0EAF5'];
@@ -10,7 +12,19 @@ export default function ColorFlood() {
   const router = useRouter();
   const [grid, setGrid] = useState<string[][]>([]);
   const [moves, setMoves] = useState(0);
-  const [targetColor, setTargetColor] = useState('');
+  const [adLoaded, setAdLoaded] = useState(false);
+
+  // ── Ad setup ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const u1 = interstitialAd.addAdEventListener(AdEventType.LOADED, () => setAdLoaded(true));
+    const u2 = interstitialAd.addAdEventListener(AdEventType.CLOSED, () => {
+      setAdLoaded(false);
+      interstitialAd.load();
+    });
+    interstitialAd.load();
+    return () => { u1(); u2(); };
+  }, []);
+  // ─────────────────────────────────────────────────────────────────────────
 
   const init = useCallback(() => {
     const newGrid = Array.from({ length: GRID_SIZE }, () =>
@@ -18,9 +32,7 @@ export default function ColorFlood() {
     );
     setGrid(newGrid);
     setMoves(0);
-    setTargetColor(newGrid[0][0]);
   }, []);
-
   useEffect(() => { init(); }, [init]);
 
   const flood = (newColor: string) => {
@@ -29,45 +41,50 @@ export default function ColorFlood() {
     const newGrid = grid.map(r => [...r]);
     const queue = [[0, 0]];
     const visited = new Set(['0,0']);
-
     while (queue.length > 0) {
       const [r, c] = queue.shift()!;
       newGrid[r][c] = newColor;
-
       [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]].forEach(([nr, nc]) => {
-        if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE &&
-            !visited.has(`${nr},${nc}`) && newGrid[nr][nc] === oldColor) {
-          visited.add(`${nr},${nc}`);
-          queue.push([nr, nc]);
+        if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && !visited.has(`${nr},${nc}`) && newGrid[nr][nc] === oldColor) {
+          visited.add(`${nr},${nc}`); queue.push([nr, nc]);
         }
       });
     }
-
     setGrid(newGrid);
     setMoves(m => m + 1);
   };
 
   const isWon = grid.length > 0 && grid.every(r => r.every(c => c === grid[0][0]));
 
+  const handleBack = () => {
+    if (adLoaded) {
+      interstitialAd.show();
+      const unsub = interstitialAd.addAdEventListener(AdEventType.CLOSED, () => {
+        unsub();
+        if (router.canGoBack()) router.back(); else router.replace('/');
+      });
+    } else {
+      if (router.canGoBack()) router.back(); else router.replace('/');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable style={styles.iconBtn} onPress={() => { if (router.canGoBack()) router.back(); else router.replace('/'); }}><ArrowLeft size={22} color="#3D4A47" /></Pressable>
+        <Pressable style={styles.iconBtn} onPress={handleBack}><ArrowLeft size={22} color="#3D4A47" /></Pressable>
         <Text style={styles.title}>Color Flood</Text>
         <Pressable style={styles.iconBtn} onPress={init}><RotateCcw size={22} color="#3D4A47" /></Pressable>
       </View>
-      <Text style={styles.subtitle}>{isWon ? "Unified in harmony." : `Fill the garden in 25 moves. Moves: ${moves}/25`}</Text>
-      
+      <Text style={styles.subtitle}>
+        {isWon ? "Unified in harmony." : `Fill the garden in 25 moves. Moves: ${moves}/25`}
+      </Text>
       <View style={styles.grid}>
         {grid.map((row, r) => (
           <View key={r} style={styles.row}>
-            {row.map((cell, c) => (
-              <View key={c} style={[styles.cell, { backgroundColor: cell }]} />
-            ))}
+            {row.map((cell, c) => <View key={c} style={[styles.cell, { backgroundColor: cell }]} />)}
           </View>
         ))}
       </View>
-
       <View style={styles.controls}>
         {COLORS_LIST.map(c => (
           <Pressable key={c} style={[styles.colorBtn, { backgroundColor: c }]} onPress={() => flood(c)} />

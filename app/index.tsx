@@ -1,10 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { Link } from 'expo-router';
-import { 
-  CircleDashed, Sparkles, Droplet, LayoutGrid, 
-  Box, Leaf, Brain, Hash, Puzzle, Grid3X3
+import {
+  CircleDashed, Sparkles, Droplet, LayoutGrid,
+  Box, Leaf, Brain, Hash, Puzzle, Grid3X3,
 } from 'lucide-react-native';
+import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
+import { BANNER_UNIT } from './hooks/ads';
 
 const GAMES = [
   { id: 'sudoku', name: 'Sudoku', icon: Grid3X3, color: '#6B9080' },
@@ -20,29 +22,38 @@ const GAMES = [
 
 export default function GameHub() {
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.logo}>✦ MINDFUL GAMES ✦</Text>
-      <Text style={styles.tagline}>A quiet place for your focus.</Text>
-      
-      <View style={styles.grid}>
-        {GAMES.map((game) => (
-          <Link key={game.id} href={`/${game.id}`} asChild>
-            <Pressable style={styles.card}>
-              <View style={[styles.iconBox, { backgroundColor: game.color }]}>
-                <game.icon size={28} color="#FFF" />
-              </View>
-              <Text style={styles.gameName}>{game.name}</Text>
-            </Pressable>
-          </Link>
-        ))}
-      </View>
-    </ScrollView>
+    <View style={styles.wrapper}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        <Text style={styles.logo}>✦ MINDFUL GAMES ✦</Text>
+        <Text style={styles.tagline}>A quiet place for your focus.</Text>
+        <View style={styles.grid}>
+          {GAMES.map((game) => (
+            <Link key={game.id} href={`/${game.id}`} asChild>
+              <Pressable style={styles.card}>
+                <View style={[styles.iconBox, { backgroundColor: game.color }]}>
+                  <game.icon size={28} color="#FFF" />
+                </View>
+                <Text style={styles.gameName}>{game.name}</Text>
+              </Pressable>
+            </Link>
+          ))}
+        </View>
+      </ScrollView>
+
+      {/* Banner ad pinned to the bottom of the hub */}
+      <BannerAd
+        unitId={BANNER_UNIT}
+        size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+        requestOptions={{ keywords: ['games', 'puzzle', 'casual', 'relaxing'] }}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDFBF7' },
-  content: { paddingTop: 80, paddingBottom: 40, paddingHorizontal: 24, alignItems: 'center' },
+  wrapper: { flex: 1, backgroundColor: '#FDFBF7' },
+  scroll: { flex: 1 },
+  content: { paddingTop: 80, paddingBottom: 20, paddingHorizontal: 24, alignItems: 'center' },
   logo: { fontSize: 24, fontWeight: '800', color: '#3D4A47', letterSpacing: 4, marginBottom: 8 },
   tagline: { fontSize: 13, color: '#9AACA6', marginBottom: 40, letterSpacing: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 16 },
