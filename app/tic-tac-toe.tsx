@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import LoadingScreen from '../components/LoadingScreen';
-import { RefreshCcw } from 'lucide-react-native';
+import { RefreshCcw, ArrowLeft } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 const COLORS = {
   background: '#F0F4F8',
@@ -16,6 +17,7 @@ const COLORS = {
 type Player = 'X' | 'O' | null;
 
 export default function TicTacToe() {
+  const router = useRouter();
   const [board, setBoard] = useState<Player[]>(Array(9).fill(null));
   const [xIsNext, setXIsNext] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -62,6 +64,14 @@ export default function TicTacToe() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <Pressable style={styles.iconButton} onPress={() => router.back()}>
+          <ArrowLeft size={24} color={COLORS.textMenu} />
+        </Pressable>
+        <Text style={styles.title}>Tic-Tac-Toe</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
       <Text style={styles.statusText}>
         {winner ? `Winner: ${winner}` : isDraw ? "It's a draw" : `Turn: ${xIsNext ? 'X' : 'O'}`}
       </Text>
@@ -96,12 +106,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 20,
   },
-  statusText: {
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 24,
+    marginBottom: 40,
+    position: 'absolute',
+    top: 60,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  title: {
     fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.textMenu,
+  },
+  statusText: {
+    fontSize: 20,
     fontWeight: '500',
     color: COLORS.textMenu,
-    marginBottom: 40,
+    marginBottom: 30,
     letterSpacing: 1,
+    marginTop: 100,
   },
   board: {
     width: 300,

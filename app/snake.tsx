@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import React, { useState, useEffect, useRef } from 'react';
 import LoadingScreen from '../components/LoadingScreen';
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react-native';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, ArrowLeft } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 const GRID_SIZE = 15;
 const CELL_SIZE = 20;
@@ -23,6 +24,7 @@ const INITIAL_SNAKE = [{ x: 7, y: 7 }, { x: 7, y: 8 }];
 const INITIAL_DIRECTION: Direction = 'UP';
 
 export default function SnakeGame() {
+  const router = useRouter();
   const [snake, setSnake] = useState<Point[]>(INITIAL_SNAKE);
   const [direction, setDirection] = useState<Direction>(INITIAL_DIRECTION);
   const [food, setFood] = useState<Point>({ x: 5, y: 5 });
@@ -95,7 +97,7 @@ export default function SnakeGame() {
       });
     };
 
-    const intervalId = setInterval(moveSnake, 250); // Relaxed pace
+    const intervalId = setInterval(moveSnake, 400); // More mindful speed (slower)
     return () => clearInterval(intervalId);
   }, [isGameOver, isLoading, food]);
 
@@ -127,8 +129,13 @@ export default function SnakeGame() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.scoreText}>Score: {score}</Text>
-        {isGameOver && <Text style={styles.gameOverText}>Game Over</Text>}
+        <Pressable style={styles.backButton} onPress={() => router.back()}>
+          <ArrowLeft size={24} color={COLORS.text} strokeWidth={2.5} />
+        </Pressable>
+        <Text style={styles.title}>Snake Garden</Text>
+        <View style={styles.scoreBadge}>
+          <Text style={styles.scoreText}>{score}</Text>
+        </View>
       </View>
 
       <View style={styles.boardContainer}>
@@ -186,21 +193,46 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 20,
     marginBottom: 20,
     height: 60,
   },
-  scoreText: {
-    fontSize: 20,
-    fontWeight: '600',
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
     color: COLORS.text,
-    letterSpacing: 1,
+  },
+  scoreBadge: {
+    backgroundColor: COLORS.board,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  scoreText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
   },
   gameOverText: {
-    fontSize: 18,
+    position: 'absolute',
+    top: 100,
+    fontSize: 20,
     color: COLORS.food,
-    fontWeight: '500',
-    marginTop: 8,
+    fontWeight: '700',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    padding: 10,
+    borderRadius: 12,
+    zIndex: 10,
   },
   boardContainer: {
     width: GRID_SIZE * CELL_SIZE,

@@ -1,19 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, RotateCcw } from 'lucide-react-native';
 
-const CORRECT_ORDER = ['#D4E0DC', '#C2D1CB', '#A3B8B0', '#859E95', '#6B857A'];
+const GRADIENTS = [
+    ['#D4E0DC', '#BCCFC8', '#A3B8B0', '#8BA198', '#738A80', '#5B7368', '#445C51', '#2F453B'],
+    ['#F5EAEF', '#ECCFD9', '#E4B4C4', '#DB99AF', '#D37E9A', '#CB6384', '#C2486F', '#B92E5A'],
+    ['#EAF4F5', '#D0E5E8', '#B7D6DB', '#9DC7CE', '#84B8C1', '#6AA9B4', '#519AA7', '#378B9A'],
+];
 
 export default function ColorSort() {
     const router = useRouter();
     const [colors, setColors] = useState<string[]>([]);
+    const [targetOrder, setTargetOrder] = useState<string[]>([]);
     const [selected, setSelected] = useState<number | null>(null);
 
     const initialize = () => {
+        const randomGradient = GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)];
+        setTargetOrder(randomGradient);
         let shuffled;
-        do { shuffled = [...CORRECT_ORDER].sort(() => Math.random() - 0.5); }
-        while (JSON.stringify(shuffled) === JSON.stringify(CORRECT_ORDER));
+        do { shuffled = [...randomGradient].sort(() => Math.random() - 0.5); }
+        while (JSON.stringify(shuffled) === JSON.stringify(randomGradient));
         setColors(shuffled);
         setSelected(null);
     };
@@ -31,7 +38,7 @@ export default function ColorSort() {
         }
     };
 
-    const isWon = JSON.stringify(colors) === JSON.stringify(CORRECT_ORDER);
+    const isWon = JSON.stringify(colors) === JSON.stringify(targetOrder);
 
     return (
         <View style={styles.container}>
@@ -40,17 +47,29 @@ export default function ColorSort() {
                 <Text style={styles.title}>Color Sort</Text>
                 <Pressable style={styles.iconButton} onPress={initialize}><RotateCcw size={24} color="#5B6963" /></Pressable>
             </View>
-            <Text style={styles.subtitle}>{isWon ? "Harmony restored." : "Tap two blocks to swap and create a gradient."}</Text>
+            <Text style={styles.subtitle}>{isWon ? "The spectrum is in perfect harmony." : "Arrange the blocks into a smooth, calming gradient."}</Text>
 
-            <View style={styles.row}>
+            <View style={styles.grid}>
                 {colors.map((color, index) => (
                     <Pressable
                         key={index}
-                        style={[styles.block, { backgroundColor: color }, selected === index && styles.selected]}
+                        style={[
+                            styles.block, 
+                            { backgroundColor: color }, 
+                            selected === index && styles.selectedBlock
+                        ]}
                         onPress={() => handlePress(index)}
-                    />
+                    >
+                        {selected === index && <View style={styles.selectionIndicator} />}
+                    </Pressable>
                 ))}
             </View>
+
+            {isWon && (
+                <View style={styles.winBanner}>
+                    <Text style={styles.winText}>Peace Restored</Text>
+                </View>
+            )}
         </View>
     );
 }
@@ -60,8 +79,11 @@ const styles = StyleSheet.create({
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     iconButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
     title: { fontSize: 24, fontWeight: '700', color: '#5B6963' },
-    subtitle: { fontSize: 16, color: '#8B9C96', textAlign: 'center', marginBottom: 60 },
-    row: { flexDirection: 'row', justifyContent: 'center', gap: 8, height: 100 },
-    block: { flex: 1, borderRadius: 12 },
-    selected: { transform: [{ scale: 1.1 }], shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5 },
+    subtitle: { fontSize: 16, color: '#8B9C96', textAlign: 'center', marginBottom: 60, paddingHorizontal: 20, lineHeight: 22 },
+    grid: { flexDirection: 'column', gap: 10, width: '100%', maxWidth: 300, alignSelf: 'center' },
+    block: { height: 50, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+    selectedBlock: { transform: [{ scale: 1.05 }], shadowOpacity: 0.3, shadowRadius: 10, zIndex: 10 },
+    selectionIndicator: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 12, borderWidth: 3, borderColor: 'rgba(255,255,255,0.5)' },
+    winBanner: { marginTop: 40, alignItems: 'center' },
+    winText: { fontSize: 20, fontWeight: '700', color: '#5B6963', letterSpacing: 2, textTransform: 'uppercase' },
 });
