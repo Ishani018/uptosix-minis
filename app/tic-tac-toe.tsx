@@ -1,189 +1,64 @@
-import { View, Text, StyleSheet, Pressable } from 'react-native';
-import React, { useState, useEffect } from 'react';
-import LoadingScreen from '../components/LoadingScreen';
-import { RefreshCcw, ArrowLeft } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
+import { ArrowLeft, RotateCcw } from 'lucide-react-native';
 
-const COLORS = {
-  background: '#F0F4F8',
-  boardBg: '#A4C3B2',
-  cell: '#FFFFFF',
-  textX: '#4A6FA5', // Soothing Blue
-  textO: '#6B9080', // Soft Green
-  textMenu: '#4A6FA5',
-  button: '#E0EBE8', // Pale Mint
-};
-
-type Player = 'X' | 'O' | null;
+const { width } = Dimensions.get('window');
 
 export default function TicTacToe() {
   const router = useRouter();
-  const [board, setBoard] = useState<Player[]>(Array(9).fill(null));
-  const [xIsNext, setXIsNext] = useState<boolean>(true);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [board, setBoard] = useState(Array(9).fill(null));
+  const [xIsNext, setXIsNext] = useState(true);
+  const gridSize = Math.min(width - 64, 320);
 
-  // Fake loading to ensure a smooth, calming transition per constraints
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const calculateWinner = (squares: Player[]) => {
-    const lines = [
-      [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
-      [0, 3, 6], [1, 4, 7], [2, 5, 8], // cols
-      [0, 4, 8], [2, 4, 6] // diagonals
-    ];
+  const calculateWinner = (squares: (string | null)[]) => {
+    const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
     for (let i = 0; i < lines.length; i++) {
       const [a, b, c] = lines[i];
-      if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
-        return squares[a];
-      }
+      if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) return squares[a];
     }
     return null;
   };
 
-  const handlePress = (index: number) => {
-    if (board[index] || calculateWinner(board)) return;
+  const winner = calculateWinner(board);
+  const status = winner ? `Winner: ${winner}` : board.every(s => s) ? "Draw" : `Next: ${xIsNext ? 'X' : 'O'}`;
 
-    const newBoard = [...board];
-    newBoard[index] = xIsNext ? 'X' : 'O';
-    setBoard(newBoard);
+  const handlePress = (i: number) => {
+    if (board[i] || winner) return;
+    const next = [...board];
+    next[i] = xIsNext ? 'X' : 'O';
+    setBoard(next);
     setXIsNext(!xIsNext);
   };
 
-  const resetGame = () => {
-    setBoard(Array(9).fill(null));
-    setXIsNext(true);
-  };
-
-  const winner = calculateWinner(board);
-  const isDraw = !winner && board.every((cell) => cell !== null);
-
-  if (isLoading) return <LoadingScreen message="Setting up the board" />;
+  const init = () => { setBoard(Array(9).fill(null)); setXIsNext(true); };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable style={styles.iconButton} onPress={() => router.back()}>
-          <ArrowLeft size={24} color={COLORS.textMenu} />
-        </Pressable>
-        <Text style={styles.title}>Tic-Tac-Toe</Text>
-        <View style={{ width: 40 }} />
+        <Pressable style={styles.iconBtn} onPress={() => { if (router.canGoBack()) router.back(); else router.replace('/'); }}><ArrowLeft size={22} color="#3D4A47" /></Pressable>
+        <Text style={styles.title}>Tic Tac Toe</Text>
+        <Pressable style={styles.iconBtn} onPress={init}><RotateCcw size={22} color="#3D4A47" /></Pressable>
       </View>
-
-      <Text style={styles.statusText}>
-        {winner ? `Winner: ${winner}` : isDraw ? "It's a draw" : `Turn: ${xIsNext ? 'X' : 'O'}`}
-      </Text>
-
-      <View style={styles.board}>
-        {board.map((cell, index) => (
-          <Pressable
-            key={index}
-            style={({ pressed }) => [styles.cell, pressed && styles.cellPressed]}
-            onPress={() => handlePress(index)}
-          >
-            <Text style={[styles.cellText, cell === 'X' ? styles.colorX : styles.colorO]}>
-              {cell}
-            </Text>
+      <Text style={styles.subtitle}>{status}</Text>
+      <View style={[styles.grid, { width: gridSize, height: gridSize }]}>
+        {board.map((s, i) => (
+          <Pressable key={i} style={[styles.cell, { width: (gridSize - 16) / 3, height: (gridSize - 16) / 3 }]} onPress={() => handlePress(i)}>
+            <Text style={[styles.cellText, s === 'X' ? { color: '#6B9080' } : { color: '#C0605A' }]}>{s}</Text>
           </Pressable>
         ))}
       </View>
-
-      <Pressable style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]} onPress={resetGame}>
-        <RefreshCcw size={20} color={COLORS.textMenu} />
-        <Text style={styles.buttonText}>Restart</Text>
-      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    paddingHorizontal: 24,
-    marginBottom: 40,
-    position: 'absolute',
-    top: 60,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.textMenu,
-  },
-  statusText: {
-    fontSize: 20,
-    fontWeight: '500',
-    color: COLORS.textMenu,
-    marginBottom: 30,
-    letterSpacing: 1,
-    marginTop: 100,
-  },
-  board: {
-    width: 300,
-    height: 300,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    backgroundColor: COLORS.boardBg,
-    borderRadius: 16,
-    padding: 8,
-    gap: 8,
-  },
-  cell: {
-    width: '31%',
-    height: '31%',
-    backgroundColor: COLORS.cell,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cellPressed: {
-    opacity: 0.7,
-    backgroundColor: '#F9FAFB',
-  },
-  cellText: {
-    fontSize: 48,
-    fontWeight: '300', // elegant, thin font weight
-  },
-  colorX: { color: COLORS.textX },
-  colorO: { color: COLORS.textO },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.button,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-    marginTop: 50,
-    gap: 8,
-  },
-  buttonPressed: {
-    opacity: 0.8,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.textMenu,
-  },
+  container: { flex: 1, backgroundColor: '#FDFBF7', padding: 24, paddingTop: 60, alignItems: 'center' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 20 },
+  iconBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 22, fontWeight: '700', color: '#3D4A47' },
+  subtitle: { fontSize: 18, color: '#9AACA6', marginBottom: 40, fontWeight: '600' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: '#EDE7D9', padding: 8, borderRadius: 12, gap: 4 },
+  cell: { backgroundColor: '#FFF', borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  cellText: { fontSize: 40, fontWeight: '700' },
 });

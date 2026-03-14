@@ -1,141 +1,80 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Shuffle } from 'lucide-react-native';
+import { ArrowLeft, RotateCcw, Shuffle } from 'lucide-react-native';
 
-const COLORS = {
-  background: '#FDFBF7',
-  text: '#5B6963',
-  tile: '#EAF4F5', // Soft blue-sage for tiles
-  emptyTile: '#F4F7F6',
-  border: '#A3B8B0',
-};
+const GRID_SIZE = 3;
+const { width } = Dimensions.get('window');
 
-// Solved state: [1, 2, 3, 4, 5, 6, 7, 8, 0] (0 is the empty space)
-const SOLVED_STATE = [1, 2, 3, 4, 5, 6, 7, 8, 0];
-
-export default function MindfulPuzzle() {
+export default function SlidePuzzle() {
   const router = useRouter();
-  const [tiles, setTiles] = useState<number[]>([...SOLVED_STATE]);
-  const [isWon, setIsWon] = useState(false);
+  const [tiles, setTiles] = useState<number[]>([]);
+  const gridSize = Math.min(width - 64, 360);
 
-  // Shuffle the board on load
-  useEffect(() => {
-    shuffleBoard();
+  const init = useCallback(() => {
+    let newTiles = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+    // Shuffle
+    for (let i = 0; i < 200; i++) {
+      const emptyIdx = newTiles.indexOf(0);
+      const neighbors = [];
+      const r = Math.floor(emptyIdx / GRID_SIZE);
+      const c = emptyIdx % GRID_SIZE;
+      if (r > 0) neighbors.push(emptyIdx - GRID_SIZE);
+      if (r < GRID_SIZE - 1) neighbors.push(emptyIdx + GRID_SIZE);
+      if (c > 0) neighbors.push(emptyIdx - 1);
+      if (c < GRID_SIZE - 1) neighbors.push(emptyIdx + 1);
+      const moveIdx = neighbors[Math.floor(Math.random() * neighbors.length)];
+      [newTiles[emptyIdx], newTiles[moveIdx]] = [newTiles[moveIdx], newTiles[emptyIdx]];
+    }
+    setTiles(newTiles);
   }, []);
 
-  const shuffleBoard = () => {
-    let shuffled = [...SOLVED_STATE];
-    // Simple shuffle - in a real game you'd ensure it's solvable, 
-    // but for a relaxing mini-game, a basic random sort works as a placeholder.
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    setTiles(shuffled);
-    setIsWon(false);
-  };
+  useEffect(() => { init(); }, [init]);
 
-  const handlePress = (index: number) => {
-    const emptyIndex = tiles.indexOf(0);
+  const handlePress = (idx: number) => {
+    const emptyIdx = tiles.indexOf(0);
+    const r = Math.floor(idx / GRID_SIZE);
+    const c = idx % GRID_SIZE;
+    const er = Math.floor(emptyIdx / GRID_SIZE);
+    const ec = emptyIdx % GRID_SIZE;
 
-    // Check if clicked tile is adjacent to the empty space
-    const isAdjacent =
-      (index === emptyIndex - 1 && index % 3 !== 2) || // Left
-      (index === emptyIndex + 1 && index % 3 !== 0) || // Right
-      (index === emptyIndex - 3) ||                    // Top
-      (index === emptyIndex + 3);                      // Bottom
-
-    if (isAdjacent) {
-      const newTiles = [...tiles];
-      // Swap tiles
-      newTiles[emptyIndex] = newTiles[index];
-      newTiles[index] = 0;
-      setTiles(newTiles);
-      checkWin(newTiles);
+    if (Math.abs(r - er) + Math.abs(c - ec) === 1) {
+      const nextTiles = [...tiles];
+      [nextTiles[idx], nextTiles[emptyIdx]] = [nextTiles[emptyIdx], nextTiles[idx]];
+      setTiles(nextTiles);
     }
   };
 
-  const checkWin = (currentTiles: number[]) => {
-    if (JSON.stringify(currentTiles) === JSON.stringify(SOLVED_STATE)) {
-      setIsWon(true);
-    }
-  };
+  const isWon = tiles.length > 0 && tiles.slice(0, -1).every((t, i) => t === i + 1);
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable style={styles.iconButton} onPress={() => router.back()}>
-          <ArrowLeft size={24} color={COLORS.text} />
-        </Pressable>
-        <Text style={styles.title}>Mindful Puzzle</Text>
-        <Pressable style={styles.iconButton} onPress={shuffleBoard}>
-          <Shuffle size={24} color={COLORS.text} />
-        </Pressable>
+        <Pressable style={styles.iconBtn} onPress={() => { if (router.canGoBack()) router.back(); else router.replace('/'); }}><ArrowLeft size={22} color="#3D4A47" /></Pressable>
+        <Text style={styles.title}>Puzzle</Text>
+        <Pressable style={styles.iconBtn} onPress={init}><Shuffle size={20} color="#3D4A47" /></Pressable>
       </View>
-
-      <Text style={styles.subtitle}>
-        {isWon ? "Perfect harmony." : "Slide the pieces to restore order."}
-      </Text>
-
-      <View style={styles.boardContainer}>
-        <View style={styles.board}>
-          {tiles.map((tile, index) => (
-            <Pressable
-              key={index}
-              style={[
-                styles.tile,
-                tile === 0 ? styles.emptyTile : null
-              ]}
-              onPress={() => handlePress(index)}
-            >
-              {tile !== 0 && <Text style={styles.tileText}>{tile}</Text>}
-            </Pressable>
-          ))}
-        </View>
+      <Text style={styles.subtitle}>{isWon ? "All things in their place." : "Slide tiles to order numbers 1-8. Be patient."}</Text>
+      
+      <View style={[styles.grid, { width: gridSize, height: gridSize }]}>
+        {tiles.map((t, i) => (
+          <Pressable key={i} style={[styles.tile, t === 0 && styles.emptyTile, { width: (gridSize - 24) / 3, height: (gridSize - 24) / 3 }]} onPress={() => handlePress(i)}>
+            {t !== 0 && <Text style={styles.tileText}>{t}</Text>}
+          </Pressable>
+        ))}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background, padding: 24, paddingTop: 60 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  iconButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 24, fontWeight: '700', color: COLORS.text },
-  subtitle: { fontSize: 16, color: COLORS.text, opacity: 0.7, textAlign: 'center', marginBottom: 40 },
-  boardContainer: { alignItems: 'center', justifyContent: 'center', flex: 1, paddingBottom: 60 },
-  board: {
-    width: 300,
-    height: 300,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    backgroundColor: '#EAEAEA',
-    borderRadius: 12,
-    padding: 4,
-    gap: 4,
-  },
-  tile: {
-    width: '32%',
-    height: '32%',
-    backgroundColor: COLORS.tile,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: COLORS.border,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  emptyTile: {
-    backgroundColor: COLORS.emptyTile,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  tileText: {
-    fontSize: 32,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
+  container: { flex: 1, backgroundColor: '#FDFBF7', padding: 24, paddingTop: 60, alignItems: 'center' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, width: '100%' },
+  iconBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 22, fontWeight: '700', color: '#3D4A47' },
+  subtitle: { fontSize: 13, color: '#9AACA6', textAlign: 'center', marginBottom: 30, lineHeight: 18 },
+  grid: { backgroundColor: '#EDE7D9', padding: 8, borderRadius: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  tile: { backgroundColor: '#FFF', borderRadius: 8, justifyContent: 'center', alignItems: 'center', elevation: 2 },
+  emptyTile: { backgroundColor: '#EDE7D9', elevation: 0 },
+  tileText: { fontSize: 24, fontWeight: '700', color: '#6B9080' },
 });
